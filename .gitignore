@@ -1,3 +1,8 @@
+# App generated things
+environments/*
+scripts/*
+run_script.sh
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
