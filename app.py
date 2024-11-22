@@ -1,6 +1,7 @@
 import os
 import platform
 import subprocess
+import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, simpledialog
 
@@ -54,27 +55,37 @@ def setup_venv(script_name, python_version="3.13.0"):
     script_path = os.path.join(SCRIPTS_DIR, script_name)
     requirements_file = os.path.join(script_path, "requirements.txt")
 
-    # Get the pyenv-managed Python executable
-    python_executable = get_pyenv_python_path(python_version)
-    if not python_executable:
-        messagebox.showerror("Error", f"Failed to find Python {python_version}")
-        return
+    def run_setup():
+        # Get the pyenv-managed Python executable
+        python_executable = get_pyenv_python_path(python_version)
+        if not python_executable:
+            messagebox.showerror("Error", f"Failed to find Python {python_version}")
+            return
 
-    try:
-        # Create the virtual environment
-        if not os.path.exists(env_path):
-            subprocess.run([python_executable, "-m", "venv", env_path], check=True)
-        subprocess.run(
-            [os.path.join(env_path, "bin", "pip"), "install", "-r", requirements_file],
-            check=True,
-        )
-        messagebox.showinfo(
-            "Success", f"Virtual environment for {script_name} created successfully!"
-        )
-    except subprocess.CalledProcessError as e:
-        messagebox.showerror(
-            "Error", f"Failed to set up virtual environment for {script_name}:\n{e}"
-        )
+        try:
+            messagebox.showinfo(None, f"Creating virtual environment for {script_name}.")
+            # Create the virtual environment
+            if not os.path.exists(env_path):
+                subprocess.run([python_executable, "-m", "venv", env_path], check=True)
+            subprocess.run(
+                [os.path.join(env_path, "bin", "pip"), "install", "-r", requirements_file],
+                check=True,
+            )
+            messagebox.showinfo(
+                "Success", f"Virtual environment for {script_name} created successfully!"
+            )
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror(
+                "Error", f"Failed to set up virtual environment for {script_name}:\n{e}"
+            )
+        finally:
+            progress_label.config(text="")
+
+    # Show running indicator
+    progress_label.config(text="Setting up virtual environment...")
+
+    # Run the setup in a separate thread to avoid freezing the GUI
+    threading.Thread(target=run_setup).start()
 
 
 def is_pyenv_available():
@@ -158,10 +169,6 @@ def rebuild_venv(script_name):
 
         # Create a new virtual environment
         setup_venv(script_name, python_version)
-        messagebox.showinfo(
-            "Success",
-            f"Virtual environment for {script_name} has been rebuilt successfully.",
-        )
     except Exception as e:
         messagebox.showerror(
             "Error", f"Failed to rebuild virtual environment for {script_name}:\n{e}"
@@ -257,7 +264,12 @@ def add_script():
     # Prompt for script content
     def save_inputs():
         script_content = script_text.get("1.0", tk.END).strip()
+        if not script_content.endswith("\n"):
+            script_content += "\n"
+
         requirements_content = req_text.get("1.0", tk.END).strip()
+        if not requirements_content.endswith("\n"):
+            requirements_content += "\n"
 
         if not script_content:
             messagebox.showerror("Error", "Script content cannot be empty!")
@@ -315,6 +327,10 @@ btn_add.pack(side="left", padx=5)
 
 btn_refresh = tk.Button(btn_frame, text="Refresh", command=update_script_list)
 btn_refresh.pack(side="right", padx=5)
+
+# Add a label to show progress
+progress_label = tk.Label(root, text="")
+progress_label.pack(pady=5)
 
 # Initialize script list
 update_script_list()
