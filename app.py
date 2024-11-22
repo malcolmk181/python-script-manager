@@ -1,8 +1,11 @@
+import json
 import os
 import platform
 import subprocess
 import threading
+import time
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import messagebox, scrolledtext, simpledialog
 
 # Directory constants
@@ -13,6 +16,15 @@ ENVS_DIR = os.path.join(BASE_DIR, "environments")
 # Ensure directories exist
 os.makedirs(SCRIPTS_DIR, exist_ok=True)
 os.makedirs(ENVS_DIR, exist_ok=True)
+
+METADATA_FILE = os.path.join(BASE_DIR, "script_metadata.json")
+script_metadata = {}
+run_buttons = {}
+
+# Load metadata from the file
+if os.path.exists(METADATA_FILE):
+    with open(METADATA_FILE, "r", encoding="utf-8") as metadata_file:
+        script_metadata = json.load(metadata_file)
 
 
 def add_pyenv_to_path():
@@ -26,6 +38,12 @@ def add_pyenv_to_path():
 
 
 add_pyenv_to_path()
+
+
+def save_metadata():
+    """Save the metadata to the JSON file."""
+    with open(METADATA_FILE, "w", encoding="utf-8") as metadata_file:
+        json.dump(script_metadata, metadata_file)
 
 
 def get_pyenv_python_path(python_version):
@@ -49,17 +67,27 @@ def get_pyenv_python_path(python_version):
         ) from exc
 
 
-def setup_venv(script_name, python_version="3.13.0"):
+def setup_venv(script_name, python_version="3.13.0", run_button=None):
     """Set up a virtual environment for the script using pyenv-managed Python."""
     env_path = os.path.join(ENVS_DIR, script_name)
     script_path = os.path.join(SCRIPTS_DIR, script_name)
     requirements_file = os.path.join(script_path, "requirements.txt")
 
     def run_setup():
+        # Disable the Run button and update the status
+        if run_button:
+            root.after(0, run_button.config, {"state": "disabled"})
+        set_status("Setting up virtual environment...")
+
         # Get the pyenv-managed Python executable
         python_executable = get_pyenv_python_path(python_version)
         if not python_executable:
-            messagebox.showerror("Error", f"Failed to find Python {python_version}")
+            root.after(
+                0, lambda: messagebox.showerror("Error", f"Failed to find Python {python_version}")
+            )
+            if run_button:
+                root.after(0, run_button.config, {"state": "normal"})
+            reset_status()
             return
 
         try:
@@ -75,14 +103,17 @@ def setup_venv(script_name, python_version="3.13.0"):
                 "Success", f"Virtual environment for {script_name} created successfully!"
             )
         except subprocess.CalledProcessError as e:
-            messagebox.showerror(
-                "Error", f"Failed to set up virtual environment for {script_name}:\n{e}"
+            root.after(
+                0,
+                lambda: messagebox.showerror(
+                    "Error", f"Failed to set up virtual environment for {script_name}:\n{e}"
+                ),
             )
         finally:
-            progress_label.config(text="")
-
-    # Show running indicator
-    progress_label.config(text="Setting up virtual environment...")
+            # Re-enable the Run button and reset the status
+            if run_button:
+                root.after(0, run_button.config, {"state": "normal"})
+            reset_status()
 
     # Run the setup in a separate thread to avoid freezing the GUI
     threading.Thread(target=run_setup).start()
@@ -144,7 +175,7 @@ def install_pyenv():
     return False
 
 
-def rebuild_venv(script_name):
+def rebuild_venv(script_name, run_button):
     """Rebuild the virtual environment for a script."""
     env_path = os.path.join(ENVS_DIR, script_name)
 
@@ -157,48 +188,111 @@ def rebuild_venv(script_name):
         messagebox.showerror("Error", "Python version is required!")
         return
 
-    try:
-        # Remove existing virtual environment
-        if os.path.exists(env_path):
-            for root_dir, dirs, files in os.walk(env_path, topdown=False):
-                for name in files:
-                    os.remove(os.path.join(root_dir, name))
-                for name in dirs:
-                    os.rmdir(os.path.join(root_dir, name))
-            os.rmdir(env_path)
+    def run_rebuild():
+        try:
+            # Remove existing virtual environment
+            if os.path.exists(env_path):
+                for root_dir, dirs, files in os.walk(env_path, topdown=False):
+                    for name in files:
+                        os.remove(os.path.join(root_dir, name))
+                    for name in dirs:
+                        os.rmdir(os.path.join(root_dir, name))
+                os.rmdir(env_path)
 
-        # Create a new virtual environment
-        setup_venv(script_name, python_version)
-    except Exception as e:
-        messagebox.showerror(
-            "Error", f"Failed to rebuild virtual environment for {script_name}:\n{e}"
-        )
+            # Create a new virtual environment
+            setup_venv(script_name, python_version, run_button)
+        except Exception as exc:
+            root.after(
+                0,
+                lambda: messagebox.showerror(
+                    "Error", f"Failed to rebuild virtual environment for {script_name}:\n{exc}"
+                ),
+            )
+
+    # Start the rebuild in a separate thread
+    threading.Thread(target=run_rebuild).start()
 
 
 def update_script_list():
-    """Update the list of scripts displayed in the UI."""
+    run_buttons.clear()
+
     for widget in list_frame.winfo_children():
         widget.destroy()
+
+    # Add the header
+    header_font = tkfont.Font(weight="bold")
+    header_label = tk.Label(list_frame, text="Scripts", font=header_font)
+    header_label.pack(fill="x", pady=(0, 5))
+
+    # Update metadata for added and deleted scripts
     scripts = os.listdir(SCRIPTS_DIR)
     for script in scripts:
-        script_frame = tk.Frame(list_frame)
-        script_frame.pack(fill="x", pady=2)
+        if script not in script_metadata:
+            script_metadata[script] = 0  # Default to "never ran"
+    for script in list(script_metadata.keys()):
+        if script not in scripts:
+            del script_metadata[script]  # Remove deleted scripts
+    save_metadata()
 
-        # Run Script Button
-        btn_run = tk.Button(
-            script_frame, text=f"Run {script}", command=lambda s=script: run_script(s)
+    # Sort scripts by last runtime (descending)
+    sorted_scripts = sorted(scripts, key=lambda s: script_metadata.get(s, 0), reverse=True)
+
+    # Create the UI for each script
+    for script in sorted_scripts:
+        script_frame = tk.Frame(list_frame, relief="solid", borderwidth=1, padx=5, pady=5)
+        script_frame.pack(fill="x", pady=5)
+
+        # Frame for script name and buttons
+        script_name_frame = tk.Frame(script_frame)
+        script_name_frame.pack(fill="x")
+
+        # Script Name Label
+        last_run = (
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(script_metadata[script]))
+            if script_metadata[script]
+            else "Never"
         )
-        btn_run.pack(side="left", padx=5)
 
-        # Rebuild Environment Button
+        # Frame for script name and "Last ran at" text
+        script_info_frame = tk.Frame(script_name_frame)
+        script_info_frame.pack(side="left", fill="x", expand=True)
+
+        # Script Name
+        script_name_label = tk.Label(script_info_frame, text=script, anchor="w")
+        script_name_label.pack(side="left")
+
+        # "Last ran at" Text
+        last_run_label = tk.Label(
+            script_info_frame, text=f" (Last ran at: {last_run})", fg="grey", anchor="w"
+        )
+        last_run_label.pack(side="left")
+
+        # Rebuild Button
         btn_rebuild = tk.Button(
-            script_frame, text="Rebuild Env", command=lambda s=script: rebuild_venv(s)
+            script_name_frame,
+            text="Rebuild Env",
+            command=lambda s=script: rebuild_venv(s, run_buttons[s]),
         )
         btn_rebuild.pack(side="right", padx=5)
+
+        # Run Button
+        btn_run = tk.Button(
+            script_name_frame,
+            text="Run",
+            command=lambda s=script: run_script(s),
+        )
+        btn_run.pack(side="right", padx=5)
+
+        # Store the button reference
+        run_buttons[script] = btn_run
 
 
 # Function to run script
 def run_script(script_name):
+    # Record the current timestamp as the last runtime
+    script_metadata[script_name] = time.time()
+    save_metadata()
+
     env_path = os.path.join(ENVS_DIR, script_name)
     script_path = os.path.join(SCRIPTS_DIR, script_name, "main.py")
     if not os.path.exists(script_path):
@@ -218,17 +312,15 @@ def run_script(script_name):
             shell=True,
         )
     elif system == "Darwin":  # macOS
-        # Create a temporary shell script to execute the command
         temp_script_path = os.path.join(BASE_DIR, "run_script.sh")
         with open(temp_script_path, "w", encoding="utf-8") as temp_script:
-            temp_script.write('rm -- "$0"\n')  # Self-delete after execution
+            temp_script.write('rm -- "$0"\n')
             temp_script.write("#!/bin/bash\n")
             temp_script.write(f"echo 'Running script {script_name}'\n")
             temp_script.write("echo\n")
             temp_script.write("echo\n")
             temp_script.write(f"'{os.path.join(env_path, 'bin', 'python')}' '{script_path}'\n")
         os.chmod(temp_script_path, 0o755)
-        # Open the shell script in a new terminal
         subprocess.Popen(["open", "-a", "Terminal.app", temp_script_path])
     elif system == "Linux":
         subprocess.Popen(
@@ -309,6 +401,16 @@ def add_script():
     tk.Button(content_window, text="Save and Create Environment", command=save_inputs).pack(pady=10)
 
 
+def set_status(message):
+    """Set the status message and style."""
+    progress_label.config(text=message, fg=default_fg_color)
+
+
+def reset_status():
+    """Reset the status to its default greyed-out placeholder."""
+    progress_label.config(text="Status", fg="grey")  # Greyed-out style
+
+
 # Main Application
 root = tk.Tk()
 root.title("Script Manager")
@@ -320,18 +422,31 @@ frame.pack(fill="both", expand=True, padx=10, pady=10)
 list_frame = tk.Frame(frame)
 list_frame.pack(fill="both", expand=True)
 
+# Button Frame
 btn_frame = tk.Frame(root)
 btn_frame.pack(fill="x", pady=5)
 
+# Add Script Button
 btn_add = tk.Button(btn_frame, text="Add Script", command=add_script)
 btn_add.pack(side="left", padx=5)
 
-btn_refresh = tk.Button(btn_frame, text="Refresh", command=update_script_list)
-btn_refresh.pack(side="right", padx=5)
+# Refresh Script List Button
+btn_refresh = tk.Button(btn_frame, text="Refresh Script List", command=update_script_list)
+btn_refresh.pack(side="left", padx=5)  # Aligned to the left next to Add Script
 
-# Add a label to show progress
-progress_label = tk.Label(root, text="")
-progress_label.pack(pady=5)
+# Progress Label Frame
+progress_frame = tk.Frame(root, relief="solid", borderwidth=1, padx=10, pady=5)
+progress_frame.pack(fill="x", pady=5, padx=10)
+
+# Progress Label with placeholder text in italics
+italic_font = tkfont.Font(slant="italic")  # Define an italic font
+progress_label = tk.Label(progress_frame, font=italic_font, anchor="w")
+progress_label.pack(fill="x")
+
+# Capture the default foreground color after the label is created
+default_fg_color = progress_label.cget("fg")
+
+reset_status()
 
 # Initialize script list
 update_script_list()

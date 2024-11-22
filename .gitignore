@@ -2,6 +2,7 @@
 environments/*
 scripts/*
 run_script.sh
+script_metadata.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
