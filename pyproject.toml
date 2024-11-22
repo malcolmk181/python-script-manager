@@ -1,0 +1,22 @@
+[tool.black]
+line-length = 100
+exclude = '''
+/(
+    environments
+    | \.git
+    | \.venv
+    | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+skip = ["environments"]
+
+[tool.pylint]
+ignore = ["environments"]
+disable = [
+    "line-too-long",
+    "missing-module-docstring",
+    "missing-function-docstring"
+]
