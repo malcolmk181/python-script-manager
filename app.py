@@ -221,6 +221,7 @@ def run_script(script_name):
         # Create a temporary shell script to execute the command
         temp_script_path = os.path.join(BASE_DIR, "run_script.sh")
         with open(temp_script_path, "w", encoding="utf-8") as temp_script:
+            temp_script.write('rm -- "$0"\n')  # Self-delete after execution
             temp_script.write("#!/bin/bash\n")
             temp_script.write(f"echo 'Running script {script_name}'\n")
             temp_script.write("echo\n")
