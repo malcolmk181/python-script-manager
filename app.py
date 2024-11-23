@@ -224,6 +224,12 @@ def update_script_list():
     header_label = tk.Label(list_frame, text="Scripts", font=header_font)
     header_label.pack(fill="x", pady=(0, 5))
 
+    # Ensure the archived directories exist
+    archived_scripts_dir = os.path.join(BASE_DIR, "archived_scripts")
+    archived_envs_dir = os.path.join(BASE_DIR, "archived_environments")
+    os.makedirs(archived_scripts_dir, exist_ok=True)
+    os.makedirs(archived_envs_dir, exist_ok=True)
+
     # Update metadata for added and deleted scripts
     scripts = os.listdir(SCRIPTS_DIR)
     for script in scripts:
@@ -267,13 +273,31 @@ def update_script_list():
         )
         last_run_label.pack(side="left")
 
-        # Rebuild Button
-        btn_rebuild = tk.Button(
-            script_name_frame,
-            text="Rebuild Env",
+        # Create the context menu (hamburger menu)
+        context_menu = tk.Menu(root, tearoff=0)
+        context_menu.add_command(
+            label="Rebuild Env",
             command=lambda s=script: rebuild_venv(s, run_buttons[s]),
         )
-        btn_rebuild.pack(side="right", padx=5)
+        context_menu.add_command(
+            label="Archive Script",
+            command=lambda s=script: archive_script(s),
+        )
+
+        # Hamburger menu button with horizontal dots
+        btn_hamburger = tk.Button(
+            script_name_frame,
+            text="⋯",  # Horizontal dots
+            relief="flat",  # Optional: Flat style for modern look
+            padx=5,  # Add horizontal padding for better clickability
+        )
+
+        # Configure the command after the button is created
+        btn_hamburger.config(
+            command=lambda menu=context_menu, btn=btn_hamburger: show_context_menu(menu, btn)
+        )
+
+        btn_hamburger.pack(side="right", padx=5, pady=5)  # Add vertical centering
 
         # Run Button
         btn_run = tk.Button(
@@ -285,6 +309,38 @@ def update_script_list():
 
         # Store the button reference
         run_buttons[script] = btn_run
+
+
+def show_context_menu(menu, button):
+    """Display the context menu below the button."""
+    x = button.winfo_rootx()
+    y = button.winfo_rooty() + button.winfo_height()
+    menu.tk_popup(x, y)
+
+
+def archive_script(script_name):
+    """Move the script and its environment to archived directories."""
+    try:
+        # Source and destination paths
+        script_src = os.path.join(SCRIPTS_DIR, script_name)
+        env_src = os.path.join(ENVS_DIR, script_name)
+        script_dest = os.path.join(BASE_DIR, "archived_scripts", script_name)
+        env_dest = os.path.join(BASE_DIR, "archived_environments", script_name)
+
+        # Archive the script directory
+        if os.path.exists(script_src):
+            os.rename(script_src, script_dest)
+
+        # Archive the environment directory
+        if os.path.exists(env_src):
+            os.rename(env_src, env_dest)
+
+        # Update the UI
+        messagebox.showinfo("Archived", f"Script '{script_name}' has been archived.")
+        update_script_list()
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to archive script '{script_name}': {e}")
 
 
 # Function to run script

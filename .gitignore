@@ -1,6 +1,8 @@
 # App generated things
 environments/*
 scripts/*
+archived_scripts/*
+archived_environments/*
 run_script.sh
 script_metadata.json
 
