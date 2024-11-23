@@ -224,12 +224,6 @@ def update_script_list():
     header_label = tk.Label(list_frame, text="Scripts", font=header_font)
     header_label.pack(fill="x", pady=(0, 5))
 
-    # Ensure the archived directories exist
-    archived_scripts_dir = os.path.join(BASE_DIR, "archived_scripts")
-    archived_envs_dir = os.path.join(BASE_DIR, "archived_environments")
-    os.makedirs(archived_scripts_dir, exist_ok=True)
-    os.makedirs(archived_envs_dir, exist_ok=True)
-
     # Update metadata for added and deleted scripts
     scripts = os.listdir(SCRIPTS_DIR)
     for script in scripts:
@@ -283,6 +277,10 @@ def update_script_list():
             label="Archive Script",
             command=lambda s=script: archive_script(s),
         )
+        context_menu.add_command(
+            label="Modify Requirements",
+            command=lambda s=script: modify_requirements(s),
+        )
 
         # Hamburger menu button with horizontal dots
         btn_hamburger = tk.Button(
@@ -309,6 +307,62 @@ def update_script_list():
 
         # Store the button reference
         run_buttons[script] = btn_run
+
+
+def modify_requirements(script_name):
+    """Open the requirements.txt file for editing and rebuild the environment upon saving."""
+    script_path = os.path.join(SCRIPTS_DIR, script_name, "requirements.txt")
+
+    # Check if the requirements.txt file exists
+    if not os.path.exists(script_path):
+        with open(script_path, "w", encoding="utf-8") as req_file:
+            req_file.write("")  # Create an empty requirements.txt file if it doesn't exist
+
+    # Open a new window to edit requirements
+    def save_changes():
+        new_content = req_text.get("1.0", tk.END).strip()
+        with open(script_path, "w", encoding="utf-8") as req_file:
+            req_file.write(new_content)
+
+        # Rebuild the environment
+        edit_window.destroy()
+        setup_venv(script_name)  # Rebuild the environment with the updated requirements
+
+    # Create and configure the editing window
+    edit_window = tk.Toplevel(root)
+    edit_window.title(f"Modify Requirements - {script_name}")
+    edit_window.geometry("600x400")  # Adjust size if needed
+
+    # Use a grid layout for better control
+    edit_window.rowconfigure(1, weight=1)  # Allow text widget to expand
+    edit_window.columnconfigure(0, weight=1)  # Allow full width expansion
+
+    # Add label
+    tk.Label(edit_window, text=f"Editing requirements.txt for {script_name}:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=(5, 0)
+    )
+
+    # Frame to hold the text box and scrollbar
+    text_frame = tk.Frame(edit_window)
+    text_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+
+    # Scrollbar
+    scrollbar = tk.Scrollbar(text_frame, orient="vertical")
+
+    # Requirements text box with integrated scrollbar
+    req_text = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set)
+    req_text.pack(side="left", fill="both", expand=True)
+    scrollbar.config(command=req_text.yview)
+    scrollbar.pack(side="right", fill="y")
+
+    # Load existing content into the text box
+    with open(script_path, "r", encoding="utf-8") as req_file:
+        req_text.insert("1.0", req_file.read())
+
+    # Save button
+    tk.Button(edit_window, text="Save and Rebuild Environment", command=save_changes).grid(
+        row=2, column=0, pady=10
+    )
 
 
 def show_context_menu(menu, button):
