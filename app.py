@@ -281,6 +281,10 @@ def update_script_list():
             label="Modify Requirements",
             command=lambda s=script: modify_requirements(s),
         )
+        context_menu.add_command(
+            label="Modify Script",
+            command=lambda s=script: modify_script(s),
+        )
 
         # Hamburger menu button with horizontal dots
         btn_hamburger = tk.Button(
@@ -307,6 +311,13 @@ def update_script_list():
 
         # Store the button reference
         run_buttons[script] = btn_run
+
+
+def show_context_menu(menu, button):
+    """Display the context menu below the button."""
+    x = button.winfo_rootx()
+    y = button.winfo_rooty() + button.winfo_height()
+    menu.tk_popup(x, y)
 
 
 def modify_requirements(script_name):
@@ -365,11 +376,58 @@ def modify_requirements(script_name):
     )
 
 
-def show_context_menu(menu, button):
-    """Display the context menu below the button."""
-    x = button.winfo_rootx()
-    y = button.winfo_rooty() + button.winfo_height()
-    menu.tk_popup(x, y)
+def modify_script(script_name):
+    """Open the main.py script for editing."""
+    script_path = os.path.join(SCRIPTS_DIR, script_name, "main.py")
+
+    # Check if the script exists
+    if not os.path.exists(script_path):
+        with open(script_path, "w", encoding="utf-8") as script_file:
+            script_file.write(
+                "# Your script starts here\n"
+            )  # Create a default script if it doesn't exist
+
+    # Open a new window to edit the script
+    def save_changes():
+        new_content = script_text.get("1.0", tk.END).strip()
+        with open(script_path, "w", encoding="utf-8") as script_file:
+            script_file.write(new_content)
+        edit_window.destroy()
+        messagebox.showinfo("Success", f"Updated script for {script_name}.")
+
+    # Create and configure the editing window
+    edit_window = tk.Toplevel(root)
+    edit_window.title(f"Modify Script - {script_name}")
+    edit_window.geometry("600x400")
+
+    # Use a grid layout for better control
+    edit_window.rowconfigure(1, weight=1)  # Allow text widget to expand
+    edit_window.columnconfigure(0, weight=1)  # Allow full width expansion
+
+    # Add label
+    tk.Label(edit_window, text=f"Editing main.py for {script_name}:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=(5, 0)
+    )
+
+    # Frame to hold the text box and scrollbar
+    text_frame = tk.Frame(edit_window)
+    text_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+
+    # Scrollbar
+    scrollbar = tk.Scrollbar(text_frame, orient="vertical")
+
+    # Script text box with integrated scrollbar
+    script_text = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set)
+    script_text.pack(side="left", fill="both", expand=True)
+    scrollbar.config(command=script_text.yview)
+    scrollbar.pack(side="right", fill="y")
+
+    # Load existing content into the text box
+    with open(script_path, "r", encoding="utf-8") as script_file:
+        script_text.insert("1.0", script_file.read())
+
+    # Save button
+    tk.Button(edit_window, text="Save Script", command=save_changes).grid(row=2, column=0, pady=10)
 
 
 def archive_script(script_name):
