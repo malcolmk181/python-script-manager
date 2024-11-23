@@ -3,6 +3,7 @@ line-length = 100
 exclude = '''
 /(
     environments
+    | archived_environments
     | \.git
     | \.venv
     | __pycache__
@@ -11,10 +12,10 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
-skip = ["environments"]
+skip = ["environments", "archived_environments"]
 
 [tool.pylint]
-ignore = ["environments"]
+ignore = ["environments", "archived_environments"]
 disable = [
     "line-too-long",
     "missing-module-docstring",
