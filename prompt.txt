@@ -14,7 +14,12 @@ I need:
 	3.	A Python script written in a clear and beginner-friendly way, formatted in the following structure:
 
 ```
+from dotenv import load_dotenv  # Import load_dotenv if using a .env file
+
 def main():
+    # If a .env file is needed for secrets, uncomment the line below to load environment variables
+    # load_dotenv()
+
     # perform functionality
 
 if __name__ == "__main__":
@@ -23,7 +28,11 @@ if __name__ == "__main__":
 
 The script should include comments explaining the logic step-by-step.
 
-If the script requires additional setup, such as creating an API key, setting environment variables, or preparing input data files, please provide clear, welcoming instructions on how to do this. Assume I am non-technical, so keep explanations approachable.
+If the script requires any secrets or environment variables (e.g., API keys), explicitly explain:
+- Where and how to retrieve the necessary API key or secret.
+- How to structure and add the API key or secret to the .env file (e.g., the exact variable name and format to use).
+
+Make sure the explanation is clear and beginner-friendly. Provide enough detail to ensure that someone unfamiliar with these concepts can still follow the instructions successfully.
 
 Here's a detailed description of how I want the script to perform:
 
