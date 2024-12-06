@@ -79,18 +79,16 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
             root.after(0, run_button.config, {"state": "disabled"})
         set_status("Setting up virtual environment...")
 
-        # Get the pyenv-managed Python executable
-        python_executable = get_pyenv_python_path(python_version)
-        if not python_executable:
-            root.after(
-                0, lambda: messagebox.showerror("Error", f"Failed to find Python {python_version}")
-            )
-            if run_button:
-                root.after(0, run_button.config, {"state": "normal"})
-            reset_status()
-            return
+        def handle_error(error):
+            root.after(0, lambda: messagebox.showerror("Error", str(error)))
+            root.after(0, install_pyenv)
 
         try:
+            # Get the pyenv-managed Python executable
+            python_executable = get_pyenv_python_path(python_version)
+            if not python_executable:
+                raise FileNotFoundError(f"Could not find Python {python_version}")
+
             messagebox.showinfo(None, f"Creating virtual environment for {script_name}.")
             # Create the virtual environment
             if not os.path.exists(env_path):
@@ -102,13 +100,9 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
             messagebox.showinfo(
                 "Success", f"Virtual environment for {script_name} created successfully!"
             )
-        except subprocess.CalledProcessError as e:
-            root.after(
-                0,
-                lambda: messagebox.showerror(
-                    "Error", f"Failed to set up virtual environment for {script_name}:\n{e}"
-                ),
-            )
+
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            handle_error(e)
         finally:
             # Re-enable the Run button and reset the status
             if run_button:
@@ -138,39 +132,46 @@ def install_pyenv():
     """Guide the user to install pyenv based on their operating system."""
     system = platform.system()
 
-    if system == "Windows":
-        messagebox.showinfo(
-            "Install pyenv",
-            "pyenv is not installed. Please visit the following link to install pyenv for Windows:\n\n"
-            "https://github.com/pyenv-win/pyenv-win",
-        )
-
-    elif system == "Darwin":  # macOS
+    if system == "Darwin":  # macOS
         try:
+            # First, check if Homebrew is installed
+            subprocess.run(["brew", "--version"], capture_output=True, check=True)
+
+            # Use a more direct installation command
             result = subprocess.run(
-                ["brew", "--version"], capture_output=True, text=True, check=False
+                ["brew", "install", "pyenv"],
+                capture_output=True,
+                text=True,
+                timeout=60,  # Add a timeout to prevent hanging
             )
+
             if result.returncode == 0:
-                subprocess.run(["brew", "install", "pyenv"], check=True)
+                messagebox.showinfo(
+                    "Success",
+                    "pyenv has been successfully installed. Please restart the application.",
+                )
                 return True
+            else:
+                messagebox.showerror(
+                    "Installation Error", f"Failed to install pyenv:\n{result.stderr}"
+                )
 
-            raise FileNotFoundError("Homebrew not found")
-
-        except FileNotFoundError:
+        except subprocess.TimeoutExpired:
+            messagebox.showerror(
+                "Installation Timeout", "Pyenv installation timed out. Please install manually."
+            )
+        except subprocess.CalledProcessError:
             messagebox.showinfo(
                 "Install pyenv",
-                "pyenv is not installed, and Homebrew is unavailable.\n"
-                "Install pyenv manually with: curl https://pyenv.run | bash\n",
+                "Homebrew installation failed. Please install Homebrew first:\n"
+                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
             )
-
-    elif system == "Linux":
-        messagebox.showinfo(
-            "Install pyenv",
-            "pyenv is not installed. Install it using: curl https://pyenv.run | bash\n",
-        )
-
-    else:
-        messagebox.showerror("Error", "Unsupported operating system for pyenv installation.")
+        except FileNotFoundError:
+            messagebox.showinfo(
+                "Install Homebrew",
+                "Homebrew is not installed. Install it with:\n"
+                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+            )
 
     return False
 
