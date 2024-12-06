@@ -1,6 +1,8 @@
-I want to create a Python script that can
+I want to create a Python script that meets this short description:
 
+"""
 {short_description}
+"""
 
 I have a program that automates creating the Python environment, installing dependencies, and running the script, so do not include any installation or execution steps in your response.
 
@@ -23,8 +25,10 @@ The script should include comments explaining the logic step-by-step.
 
 If the script requires additional setup, such as creating an API key, setting environment variables, or preparing input data files, please provide clear, welcoming instructions on how to do this. Assume I am non-technical, so keep explanations approachable.
 
-Here's what I want the script to do:
+Here's a detailed description of how I want the script to perform:
 
+"""
 {detailed_description}
+"""
 
 Make sure the response is friendly, helpful, and clear, as I may need to debug or make small changes. Since I can easily edit the requirements.txt file and script, feel free to make assumptions if something isn't perfectly defined. However, focus on ensuring that the script is functional and easy to understand. Do not include steps for installing Python or running the script. Thank you!
