@@ -287,6 +287,10 @@ def update_script_list():
             label="Modify Script",
             command=lambda s=script: modify_script(s),
         )
+        context_menu.add_command(
+            label="Edit .env Variables",
+            command=lambda s=script: edit_env_variables(s),
+        )
 
         # Hamburger menu button with horizontal dots
         btn_hamburger = tk.Button(
@@ -527,7 +531,6 @@ def add_script():
         os.rmdir(script_dir)
         return
 
-    # Prompt for script content
     def save_inputs():
         script_content = script_text.get("1.0", tk.END).strip()
         if not script_content.endswith("\n"):
@@ -537,17 +540,36 @@ def add_script():
         if not requirements_content.endswith("\n"):
             requirements_content += "\n"
 
+        # Environment variables content
+        env_content = env_text.get("1.0", tk.END).strip()
+        if not env_content.endswith("\n"):
+            env_content += "\n"
+
         if not script_content:
             messagebox.showerror("Error", "Script content cannot be empty!")
             os.rmdir(script_dir)
             content_window.destroy()
             return
 
+        # Write script file
         with open(os.path.join(script_dir, "main.py"), "w", encoding="utf-8") as script_file:
             script_file.write(script_content)
 
+        # Write requirements file
         with open(os.path.join(script_dir, "requirements.txt"), "w", encoding="utf-8") as req_file:
             req_file.write(requirements_content)
+
+        # Write .env file
+        with open(os.path.join(script_dir, ".env"), "w", encoding="utf-8") as env_file:
+            # Add disclaimers and example
+            env_file.write(
+                "# This is where you should define environment variables, if necessary.\n"
+                "# For example, it might look like:\n"
+                '# OPENAI_KEY="secret-openai-key-here"\n'
+                '# API_TOKEN="your-api-token"\n\n'
+            )
+            # Add user-entered environment variables
+            env_file.write(env_content)
 
         setup_venv(script_name, python_version)
         update_script_list()
@@ -555,8 +577,8 @@ def add_script():
 
     # Create content input window
     content_window = tk.Toplevel(root)
-    content_window.title("Script and Requirements Input")
-    content_window.geometry("600x400")
+    content_window.title("Script, Requirements, and Environment Variables Input")
+    content_window.geometry("600x600")
 
     # Script Input
     tk.Label(content_window, text="Script Content (main.py):").pack(anchor="w", padx=5, pady=5)
@@ -570,8 +592,77 @@ def add_script():
     req_text = scrolledtext.ScrolledText(content_window, wrap=tk.WORD, height=5)
     req_text.pack(fill="both", expand=True, padx=5, pady=5)
 
+    # Environment Variables Input
+    tk.Label(content_window, text="Environment Variables (.env):").pack(anchor="w", padx=5, pady=5)
+    env_text = scrolledtext.ScrolledText(content_window, wrap=tk.WORD, height=5)
+    env_text.pack(fill="both", expand=True, padx=5, pady=5)
+
+    # Populate with default content
+    env_text.insert(
+        tk.END, "# Add your environment variables here\n" '# Example: API_KEY="your_secret_key"\n'
+    )
+
     # Save Button
     tk.Button(content_window, text="Save and Create Environment", command=save_inputs).pack(pady=10)
+
+
+def edit_env_variables(script_name):
+    """Open the .env file for editing."""
+    env_path = os.path.join(SCRIPTS_DIR, script_name, ".env")
+
+    # Check if the .env file exists, create it if not
+    if not os.path.exists(env_path):
+        with open(env_path, "w", encoding="utf-8") as env_file:
+            env_file.write(
+                "# This is where you should define environment variables, if necessary.\n"
+                "# For example, it might look like:\n"
+                '# OPENAI_KEY="secret-openai-key-here"\n'
+                '# API_TOKEN="your-api-token"\n\n'
+            )
+
+    # Open a new window to edit the .env file
+    def save_changes():
+        new_content = env_text.get("1.0", tk.END).strip()
+        with open(env_path, "w", encoding="utf-8") as env_file:
+            env_file.write(new_content)
+        edit_window.destroy()
+        messagebox.showinfo("Success", f"Updated .env file for {script_name}.")
+
+    # Create and configure the editing window
+    edit_window = tk.Toplevel(root)
+    edit_window.title(f"Edit .env - {script_name}")
+    edit_window.geometry("600x400")
+
+    # Use a grid layout for better control
+    edit_window.rowconfigure(1, weight=1)  # Allow text widget to expand
+    edit_window.columnconfigure(0, weight=1)  # Allow full width expansion
+
+    # Add label
+    tk.Label(edit_window, text=f"Editing .env for {script_name}:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=(5, 0)
+    )
+
+    # Frame to hold the text box and scrollbar
+    text_frame = tk.Frame(edit_window)
+    text_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+
+    # Scrollbar
+    scrollbar = tk.Scrollbar(text_frame, orient="vertical")
+
+    # .env text box with integrated scrollbar
+    env_text = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set)
+    env_text.pack(side="left", fill="both", expand=True)
+    scrollbar.config(command=env_text.yview)
+    scrollbar.pack(side="right", fill="y")
+
+    # Load existing content into the text box
+    with open(env_path, "r", encoding="utf-8") as env_file:
+        env_text.insert("1.0", env_file.read())
+
+    # Save button
+    tk.Button(edit_window, text="Save .env File", command=save_changes).grid(
+        row=2, column=0, pady=10
+    )
 
 
 def set_status(message):
