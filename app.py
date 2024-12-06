@@ -43,8 +43,8 @@ add_pyenv_to_path()
 
 def save_metadata():
     """Save the metadata to the JSON file."""
-    with open(METADATA_FILE, "w", encoding="utf-8") as metadata_file:
-        json.dump(script_metadata, metadata_file)
+    with open(METADATA_FILE, "w", encoding="utf-8") as metadata_json_file:
+        json.dump(script_metadata, metadata_json_file)
 
 
 def get_pyenv_python_path(python_version):
@@ -144,6 +144,7 @@ def install_pyenv():
                 capture_output=True,
                 text=True,
                 timeout=60,  # Add a timeout to prevent hanging
+                check=False,
             )
 
             if result.returncode == 0:
@@ -152,10 +153,8 @@ def install_pyenv():
                     "pyenv has been successfully installed. Please restart the application.",
                 )
                 return True
-            else:
-                messagebox.showerror(
-                    "Installation Error", f"Failed to install pyenv:\n{result.stderr}"
-                )
+
+            messagebox.showerror("Installation Error", f"Failed to install pyenv:\n{result.stderr}")
 
         except subprocess.TimeoutExpired:
             messagebox.showerror(
@@ -604,7 +603,7 @@ def add_script():
 
     # Populate with default content
     env_text.insert(
-        tk.END, "# Add your environment variables here\n" '# Example: API_KEY="your_secret_key"\n'
+        tk.END, """# Add your environment variables here\n# Example: API_KEY="your_secret_key"\n"""
     )
 
     # Save Button
