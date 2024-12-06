@@ -439,22 +439,27 @@ def modify_script(script_name):
 def archive_script(script_name):
     """Move the script and its environment to archived directories."""
     try:
-        # Source and destination paths using os.path.join to handle spaces
-        script_src = os.path.join(SCRIPTS_DIR, script_name)
-        env_src = os.path.join(ENVS_DIR, script_name)
-
         # Create archived directories if they don't exist
         os.makedirs(os.path.join(BASE_DIR, "archived_scripts"), exist_ok=True)
         os.makedirs(os.path.join(BASE_DIR, "archived_environments"), exist_ok=True)
 
+        script_src = os.path.join(SCRIPTS_DIR, script_name)
+        env_src = os.path.join(ENVS_DIR, script_name)
+
         script_dest = os.path.join(BASE_DIR, "archived_scripts", script_name)
         env_dest = os.path.join(BASE_DIR, "archived_environments", script_name)
 
-        # Archive the script directory
-        shutil.move(script_src, script_dest)
+        # Archive the script directory if it exists
+        if os.path.exists(script_src):
+            shutil.move(script_src, script_dest)
+        else:
+            os.makedirs(script_dest, exist_ok=True)
 
-        # Archive the environment directory
-        shutil.move(env_src, env_dest)
+        # Archive the environment directory if it exists
+        if os.path.exists(env_src):
+            shutil.move(env_src, env_dest)
+        else:
+            os.makedirs(env_dest, exist_ok=True)
 
         # Update the UI
         messagebox.showinfo("Archived", f"Script '{script_name}' has been archived.")
