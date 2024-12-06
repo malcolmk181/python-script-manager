@@ -580,6 +580,84 @@ def reset_status():
     progress_label.config(text="Status", fg="grey")  # Greyed-out style
 
 
+def generate_prompt():
+    """Open a window to generate a script generation prompt."""
+
+    def generate_prompt_text():
+        short_desc = short_description.get()
+        detailed_desc = detailed_description.get("1.0", tk.END).strip()
+
+        if not short_desc or not detailed_desc:
+            messagebox.showerror("Error", "Please fill in both description fields")
+            return
+
+        # Read the prompt template
+        try:
+            with open("prompt.txt", "r", encoding="utf-8") as f:
+                prompt_template = f.read()
+        except FileNotFoundError:
+            messagebox.showerror("Error", "prompt.txt file not found")
+            return
+
+        # Fill in the placeholders
+        filled_prompt = prompt_template.format(
+            short_description=short_desc, detailed_description=detailed_desc
+        )
+
+        # Open a new window to display the generated prompt
+        prompt_window = tk.Toplevel(root)
+        prompt_window.title("Generated Prompt")
+        prompt_window.geometry("500x400")
+
+        # Prompt text area
+        prompt_text = tk.Text(prompt_window, wrap=tk.WORD)
+        prompt_text.insert(tk.END, filled_prompt)
+        prompt_text.pack(fill="both", expand=True, padx=10, pady=10)
+        prompt_text.config(state=tk.DISABLED)
+
+        # Copy to clipboard function
+        def copy_to_clipboard():
+            root.clipboard_clear()
+            root.clipboard_append(filled_prompt)
+            messagebox.showinfo("Copied", "Prompt copied to clipboard!")
+
+        # Button frame
+        button_frame = tk.Frame(prompt_window)
+        button_frame.pack(fill="x", pady=10)
+
+        # Copy and Close buttons
+        copy_button = tk.Button(button_frame, text="Copy to Clipboard", command=copy_to_clipboard)
+        copy_button.pack(side="left", expand=True, padx=5)
+
+        close_button = tk.Button(button_frame, text="Close", command=prompt_window.destroy)
+        close_button.pack(side="right", expand=True, padx=5)
+
+    # Create the prompt generation window
+    prompt_gen_window = tk.Toplevel(root)
+    prompt_gen_window.title("Generate Script Prompt")
+    prompt_gen_window.geometry("500x400")
+
+    # Short description input
+    tk.Label(prompt_gen_window, text="Enter a one-line description of the task:").pack(
+        anchor="w", padx=10, pady=(10, 0)
+    )
+    short_description = tk.Entry(prompt_gen_window, width=60)
+    short_description.pack(padx=10, pady=5, fill="x")
+
+    # Detailed description input
+    tk.Label(prompt_gen_window, text="Enter a detailed description of the task:").pack(
+        anchor="w", padx=10, pady=(10, 0)
+    )
+    detailed_description = tk.Text(prompt_gen_window, wrap=tk.WORD, height=10)
+    detailed_description.pack(padx=10, pady=5, fill="x")
+
+    # Generate button
+    generate_button = tk.Button(
+        prompt_gen_window, text="Generate Prompt", command=generate_prompt_text
+    )
+    generate_button.pack(pady=10)
+
+
 # Main Application
 root = tk.Tk()
 root.title("Script Manager")
@@ -598,6 +676,10 @@ btn_frame.pack(fill="x", pady=5)
 # Add Script Button
 btn_add = tk.Button(btn_frame, text="Add Script", command=add_script)
 btn_add.pack(side="left", padx=5)
+
+# Modify the existing button frame creation to add the new button
+btn_generate_prompt = tk.Button(btn_frame, text="Generate Prompt", command=generate_prompt)
+btn_generate_prompt.pack(side="left", padx=5)
 
 # Refresh Script List Button
 btn_refresh = tk.Button(btn_frame, text="Refresh Script List", command=update_script_list)
