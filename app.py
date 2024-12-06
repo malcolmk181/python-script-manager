@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+import shutil
 import subprocess
 import threading
 import time
@@ -434,19 +435,22 @@ def modify_script(script_name):
 def archive_script(script_name):
     """Move the script and its environment to archived directories."""
     try:
-        # Source and destination paths
+        # Source and destination paths using os.path.join to handle spaces
         script_src = os.path.join(SCRIPTS_DIR, script_name)
         env_src = os.path.join(ENVS_DIR, script_name)
+
+        # Create archived directories if they don't exist
+        os.makedirs(os.path.join(BASE_DIR, "archived_scripts"), exist_ok=True)
+        os.makedirs(os.path.join(BASE_DIR, "archived_environments"), exist_ok=True)
+
         script_dest = os.path.join(BASE_DIR, "archived_scripts", script_name)
         env_dest = os.path.join(BASE_DIR, "archived_environments", script_name)
 
         # Archive the script directory
-        if os.path.exists(script_src):
-            os.rename(script_src, script_dest)
+        shutil.move(script_src, script_dest)
 
         # Archive the environment directory
-        if os.path.exists(env_src):
-            os.rename(env_src, env_dest)
+        shutil.move(env_src, env_dest)
 
         # Update the UI
         messagebox.showinfo("Archived", f"Script '{script_name}' has been archived.")
