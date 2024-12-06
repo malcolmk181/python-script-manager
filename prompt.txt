@@ -1,0 +1,30 @@
+I want to create a Python script that can
+
+{short_description}
+
+I have a program that automates creating the Python environment, installing dependencies, and running the script, so do not include any installation or execution steps in your response.
+
+Additionally, the program allows me to easily edit the script and requirements.txt file, and it can rebuild the environment automatically if changes are made. With this in mind:
+
+I need:
+	1.	A specific Python version number (e.g., 3.11) that is compatible with the libraries and task.
+	2.	A requirements.txt file listing only the libraries necessary for the script. Feel free to include all dependencies even if only some might be used, as I can easily adjust it later.
+	3.	A Python script written in a clear and beginner-friendly way, formatted in the following structure:
+
+```
+def main():
+    # perform functionality
+
+if __name__ == "__main__":
+    main()
+```
+
+The script should include comments explaining the logic step-by-step.
+
+If the script requires additional setup, such as creating an API key, setting environment variables, or preparing input data files, please provide clear, welcoming instructions on how to do this. Assume I am non-technical, so keep explanations approachable.
+
+Here's what I want the script to do:
+
+{detailed_description}
+
+Make sure the response is friendly, helpful, and clear, as I may need to debug or make small changes. Since I can easily edit the requirements.txt file and script, feel free to make assumptions if something isn't perfectly defined. However, focus on ensuring that the script is functional and easy to understand. Do not include steps for installing Python or running the script. Thank you!
