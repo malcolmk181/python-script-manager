@@ -43,7 +43,7 @@ def add_pyenv_to_path():
         pyenv_shims = os.path.join(pyenv_root, "shims")
 
     # Add pyenv directories to PATH
-    os.environ["PATH"] = pyenv_bin + os.pathsep + pyenv_shims + os.pathsep + os.environ["PATH"]
+    os.environ["PATH"] = os.pathsep.join([pyenv_bin, pyenv_shims, os.environ["PATH"]])
 
 
 add_pyenv_to_path()
@@ -199,43 +199,12 @@ def install_pyenv():
             )
 
     elif system == "Windows":
-        try:
-            response = messagebox.askyesno(
-                "Install pyenv-win", "pyenv-win is not installed. Do you want to install it now?"
-            )
-            if response:
-                result = subprocess.run(
-                    [
-                        "powershell",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-Command",
-                        "Invoke-WebRequest -UseBasicParsing https://pyenv.run | Invoke-Expression",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    messagebox.showinfo(
-                        "Success",
-                        "pyenv-win has been successfully installed. Please restart the application.",
-                    )
-                    return True
-                else:
-                    messagebox.showerror(
-                        "Installation Error", f"Failed to install pyenv-win:\n{result.stderr}"
-                    )
-            else:
-                messagebox.showinfo(
-                    "Install pyenv-win",
-                    "To install pyenv-win manually, open PowerShell and run:\n\n"
-                    "Invoke-WebRequest -UseBasicParsing https://pyenv.run | Invoke-Expression\n\n"
-                    "For more information, visit:\n"
-                    "https://github.com/pyenv-win/pyenv-win#installation",
-                )
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to install pyenv-win:\n{str(e)}")
+        messagebox.showinfo(
+            "Install pyenv-win",
+            "pyenv-win is not installed. Please install it by following the instructions at:\n\n"
+            "https://github.com/pyenv-win/pyenv-win#installation\n\n"
+            "After installation, restart this application.",
+        )
     else:
         messagebox.showinfo(
             "Install pyenv",
