@@ -7,6 +7,7 @@ import threading
 import time
 import tkinter as tk
 import tkinter.font as tkfont
+import webbrowser
 from tkinter import messagebox, scrolledtext, simpledialog
 
 # Directory constants
@@ -158,58 +159,83 @@ def install_pyenv():
     """Guide the user to install pyenv based on their operating system."""
     system = platform.system()
 
-    if system == "Darwin":  # macOS
-        try:
-            # First, check if Homebrew is installed
-            subprocess.run(["brew", "--version"], capture_output=True, check=True)
-
-            # Use a more direct installation command
-            result = subprocess.run(
-                ["brew", "install", "pyenv"],
-                capture_output=True,
-                text=True,
-                timeout=60,  # Add a timeout to prevent hanging
-                check=False,
-            )
-
-            if result.returncode == 0:
-                messagebox.showinfo(
-                    "Success",
-                    "pyenv has been successfully installed. Please restart the application.",
-                )
-                return True
-
-            messagebox.showerror("Installation Error", f"Failed to install pyenv:\n{result.stderr}")
-
-        except subprocess.TimeoutExpired:
-            messagebox.showerror(
-                "Installation Timeout", "Pyenv installation timed out. Please install manually."
-            )
-        except subprocess.CalledProcessError:
-            messagebox.showinfo(
-                "Install pyenv",
-                "Homebrew installation failed. Please install Homebrew first:\n"
-                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
-            )
-        except FileNotFoundError:
-            messagebox.showinfo(
-                "Install Homebrew",
-                "Homebrew is not installed. Install it with:\n"
-                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
-            )
-
-    elif system == "Windows":
-        messagebox.showinfo(
-            "Install pyenv-win",
+    # Common instructions and links for pyenv installation
+    if system == "Windows":
+        title = "Install pyenv-win"
+        instructions = (
             "pyenv-win is not installed. Please install it by following the instructions at:\n\n"
-            "https://github.com/pyenv-win/pyenv-win#installation\n\n"
-            "After installation, restart this application.",
         )
+        link_text = "https://github.com/pyenv-win/pyenv-win#installation"
+        after_instructions = "\n\nAfter installation, restart this application."
     else:
-        messagebox.showinfo(
-            "Install pyenv",
-            "pyenv is not installed. Please install pyenv for your operating system.",
+        title = "Install pyenv"
+        instructions = (
+            "pyenv is not installed. Please install it by following the instructions at:\n\n"
         )
+        link_text = "https://github.com/pyenv/pyenv#installation"
+        after_instructions = "\n\nAfter installation, restart this application."
+
+    # Function to create the installation window
+    def open_install_pyenv():
+        install_window = tk.Toplevel(root)
+        install_window.title(title)
+        install_window.geometry("500x300")
+        install_window.resizable(False, False)
+
+        # Text widget to display instructions
+        text_widget = tk.Text(install_window, wrap="word", height=10)
+        text_widget.pack(expand=True, fill="both", padx=10, pady=10)
+
+        # Insert instructions into the Text widget
+        text_widget.insert("1.0", instructions)
+
+        # Keep track of the link's start and end positions
+        link_start = text_widget.index(tk.INSERT)
+        text_widget.insert(tk.INSERT, link_text)
+        link_end = text_widget.index(tk.INSERT)
+
+        # Insert the remaining instructions
+        text_widget.insert(tk.INSERT, after_instructions)
+
+        # Configure the tag for the hyperlink
+        text_widget.tag_add("link", link_start, link_end)
+        text_widget.tag_config("link", foreground="blue", underline=True)
+
+        # Event handler for clicking the link
+        def open_link(event):
+            webbrowser.open_new(link_text)
+
+        text_widget.tag_bind("link", "<Button-1>", open_link)
+
+        # Configure the Text widget to be read-only but allow text selection
+        text_widget.config(state="disabled")
+        text_widget.bind("<1>", lambda event: text_widget.focus_set())
+
+        # Buttons frame
+        buttons_frame = tk.Frame(install_window)
+        buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Copy Link Button
+        def copy_link():
+            root.clipboard_clear()
+            root.clipboard_append(link_text)
+            messagebox.showinfo("Copied", "Link copied to clipboard!")
+
+        copy_button = tk.Button(buttons_frame, text="Copy Link", command=copy_link)
+        copy_button.pack(side="left", padx=5)
+
+        # Open Link Button
+        open_link_button = tk.Button(
+            buttons_frame, text="Open Link", command=lambda: webbrowser.open_new(link_text)
+        )
+        open_link_button.pack(side="left", padx=5)
+
+        # Close Button
+        close_button = tk.Button(buttons_frame, text="Close", command=install_window.destroy)
+        close_button.pack(side="right", padx=5)
+
+    # Schedule the function to run in the main thread
+    root.after(0, open_install_pyenv)
 
     return False
 
