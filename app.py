@@ -31,8 +31,16 @@ if os.path.exists(METADATA_FILE):
 def add_pyenv_to_path():
     """Ensure pyenv is accessible by adding it to PATH."""
     home_dir = os.path.expanduser("~")
-    pyenv_bin = os.path.join(home_dir, ".pyenv", "bin")
-    pyenv_shims = os.path.join(home_dir, ".pyenv", "shims")
+    system = platform.system()
+
+    if system == "Windows":
+        pyenv_root = os.path.join(home_dir, ".pyenv", "pyenv-win")
+        pyenv_bin = os.path.join(pyenv_root, "bin")
+        pyenv_shims = os.path.join(pyenv_root, "shims")
+    else:
+        pyenv_root = os.path.join(home_dir, ".pyenv")
+        pyenv_bin = os.path.join(pyenv_root, "bin")
+        pyenv_shims = os.path.join(pyenv_root, "shims")
 
     # Add pyenv directories to PATH
     os.environ["PATH"] = pyenv_bin + os.pathsep + pyenv_shims + os.pathsep + os.environ["PATH"]
@@ -48,10 +56,20 @@ def save_metadata():
 
 
 def get_pyenv_python_path(python_version):
-    """Get the path to the pyenv-managed Python3 executable."""
+    """Get the path to the pyenv-managed Python executable."""
     try:
+        system = platform.system()
+        if system in ["Darwin", "Linux"]:
+            # Use 'python3' on macOS and Linux
+            command = ["pyenv", "which", "python3"]
+        elif system == "Windows":
+            # Use 'python' on Windows
+            command = ["pyenv", "which", "python"]
+        else:
+            raise RuntimeError(f"Unsupported operating system: {system}")
+
         result = subprocess.run(
-            ["pyenv", "which", "python3"],  # Use python3 explicitly
+            command,
             capture_output=True,
             text=True,
             env={"PATH": os.environ["PATH"], "PYENV_VERSION": python_version},
@@ -64,7 +82,7 @@ def get_pyenv_python_path(python_version):
         raise FileNotFoundError("pyenv is not installed or not in PATH.") from exc
     except Exception as exc:
         raise RuntimeError(
-            f"Failed to locate pyenv-managed Python3 {python_version}:\n{exc}"
+            f"Failed to locate pyenv-managed Python {python_version}:\n{exc}"
         ) from exc
 
 
@@ -94,8 +112,15 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
             # Create the virtual environment
             if not os.path.exists(env_path):
                 subprocess.run([python_executable, "-m", "venv", env_path], check=True)
+
+            # Determine the path to pip in the virtual environment
+            if platform.system() == "Windows":
+                pip_executable = os.path.join(env_path, "Scripts", "pip.exe")
+            else:
+                pip_executable = os.path.join(env_path, "bin", "pip")
+
             subprocess.run(
-                [os.path.join(env_path, "bin", "pip"), "install", "-r", requirements_file],
+                [pip_executable, "install", "-r", requirements_file],
                 check=True,
             )
             messagebox.showinfo(
@@ -173,6 +198,50 @@ def install_pyenv():
                 '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
             )
 
+    elif system == "Windows":
+        try:
+            response = messagebox.askyesno(
+                "Install pyenv-win", "pyenv-win is not installed. Do you want to install it now?"
+            )
+            if response:
+                result = subprocess.run(
+                    [
+                        "powershell",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-Command",
+                        "Invoke-WebRequest -UseBasicParsing https://pyenv.run | Invoke-Expression",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    messagebox.showinfo(
+                        "Success",
+                        "pyenv-win has been successfully installed. Please restart the application.",
+                    )
+                    return True
+                else:
+                    messagebox.showerror(
+                        "Installation Error", f"Failed to install pyenv-win:\n{result.stderr}"
+                    )
+            else:
+                messagebox.showinfo(
+                    "Install pyenv-win",
+                    "To install pyenv-win manually, open PowerShell and run:\n\n"
+                    "Invoke-WebRequest -UseBasicParsing https://pyenv.run | Invoke-Expression\n\n"
+                    "For more information, visit:\n"
+                    "https://github.com/pyenv-win/pyenv-win#installation",
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to install pyenv-win:\n{str(e)}")
+    else:
+        messagebox.showinfo(
+            "Install pyenv",
+            "pyenv is not installed. Please install pyenv for your operating system.",
+        )
+
     return False
 
 
@@ -193,12 +262,7 @@ def rebuild_venv(script_name, run_button):
         try:
             # Remove existing virtual environment
             if os.path.exists(env_path):
-                for root_dir, dirs, files in os.walk(env_path, topdown=False):
-                    for name in files:
-                        os.remove(os.path.join(root_dir, name))
-                    for name in dirs:
-                        os.rmdir(os.path.join(root_dir, name))
-                os.rmdir(env_path)
+                shutil.rmtree(env_path)
 
             # Create a new virtual environment
             setup_venv(script_name, python_version, run_button)
@@ -468,7 +532,6 @@ def archive_script(script_name):
         messagebox.showerror("Error", f"Failed to archive script '{script_name}': {e}")
 
 
-# Function to run script
 def run_script(script_name):
     # Record the current timestamp as the last runtime
     script_metadata[script_name] = time.time()
@@ -480,18 +543,17 @@ def run_script(script_name):
         messagebox.showerror("Error", "Script not found!")
         return
 
-    # Open the script in a new terminal
+    # Determine the path to the Python executable in the virtual environment
     system = platform.system()
     if system == "Windows":
-        subprocess.Popen(
-            [
-                "start",
-                "cmd",
-                "/k",
-                f"echo Running script {script_name} && echo. && echo. && {os.path.join(env_path, 'Scripts', 'python')} {script_path}",
-            ],
-            shell=True,
-        )
+        python_executable = os.path.join(env_path, "Scripts", "python.exe")
+    else:
+        python_executable = os.path.join(env_path, "bin", "python")
+
+    # Open the script in a new terminal
+    if system == "Windows":
+        command = f'start cmd /k "echo Running script {script_name} && echo. && echo. && "{python_executable}" "{script_path}""'
+        subprocess.Popen(command, shell=True)
     elif system == "Darwin":  # macOS
         temp_script_path = os.path.join(BASE_DIR, "run_script.sh")
         with open(temp_script_path, "w", encoding="utf-8") as temp_script:
@@ -500,7 +562,7 @@ def run_script(script_name):
             temp_script.write(f"echo 'Running script {script_name}'\n")
             temp_script.write("echo\n")
             temp_script.write("echo\n")
-            temp_script.write(f"'{os.path.join(env_path, 'bin', 'python')}' '{script_path}'\n")
+            temp_script.write(f"'{python_executable}' '{script_path}'\n")
         os.chmod(temp_script_path, 0o755)
         subprocess.Popen(["open", "-a", "Terminal.app", temp_script_path])
     elif system == "Linux":
@@ -508,7 +570,7 @@ def run_script(script_name):
             [
                 "x-terminal-emulator",
                 "-e",
-                f"echo 'Running script {script_name}' && echo && echo && {os.path.join(env_path, 'bin', 'python')} {script_path}",
+                f"echo 'Running script {script_name}' && echo && echo && '{python_executable}' '{script_path}'",
             ]
         )
     else:
@@ -708,10 +770,15 @@ def generate_prompt():
         prompt_window.title("Generated Prompt")
         prompt_window.geometry("500x400")
 
+        # Configure grid layout
+        prompt_window.rowconfigure(0, weight=1)
+        prompt_window.rowconfigure(1, weight=0)
+        prompt_window.columnconfigure(0, weight=1)
+
         # Prompt text area
         prompt_text = tk.Text(prompt_window, wrap=tk.WORD)
         prompt_text.insert(tk.END, filled_prompt)
-        prompt_text.pack(fill="both", expand=True, padx=10, pady=10)
+        prompt_text.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         prompt_text.config(state=tk.DISABLED)
 
         # Copy to clipboard function
@@ -722,7 +789,7 @@ def generate_prompt():
 
         # Button frame
         button_frame = tk.Frame(prompt_window)
-        button_frame.pack(fill="x", pady=10)
+        button_frame.grid(row=1, column=0, sticky="ew", pady=10)
 
         # Copy and Close buttons
         copy_button = tk.Button(button_frame, text="Copy to Clipboard", command=copy_to_clipboard)
