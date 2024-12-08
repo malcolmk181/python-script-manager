@@ -69,27 +69,32 @@ def get_pyenv_python_path(python_version):
         env["PYENV_VERSION"] = python_version
 
         if system == "Windows":
-            home_dir = os.path.expanduser("~")
-            pyenv_root = os.path.join(home_dir, ".pyenv", "pyenv-win")
-            pyenv_executable = os.path.join(pyenv_root, "bin", "pyenv.bat")
-            command = [pyenv_executable, "which", "python"]
-            shell = False
+            command = f"pyenv which python"
+            shell = True
         elif system in ["Darwin", "Linux"]:
             command = ["pyenv", "which", "python3"]
             shell = False
         else:
             raise RuntimeError(f"Unsupported operating system: {system}")
 
+        # For Windows, pass the command as a string when shell=True
+        command_list = command if shell else command
+
         result = subprocess.run(
-            command,
+            command_list,
             capture_output=True,
             text=True,
             env=env,
             shell=shell,
             check=False,
         )
+
         if result.returncode != 0:
-            raise RuntimeError(result.stderr.strip())
+            error_message = (
+                f"Command '{command}' returned non-zero exit status {result.returncode}.\n"
+                f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+            )
+            raise RuntimeError(error_message)
         return result.stdout.strip()
     except FileNotFoundError as exc:
         raise FileNotFoundError("pyenv is not installed or not in PATH.") from exc
@@ -99,7 +104,7 @@ def get_pyenv_python_path(python_version):
         ) from exc
 
 
-def setup_venv(script_name, python_version="3.13.0", run_button=None):
+def setup_venv(script_name, python_version="3.10.0", run_button=None):
     """Set up a virtual environment for the script using pyenv-managed Python."""
     env_path = os.path.join(ENVS_DIR, script_name)
     script_path = os.path.join(SCRIPTS_DIR, script_name)
@@ -116,6 +121,34 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
             root.after(0, install_pyenv)
 
         try:
+            # Check if the requested Python version is installed
+            if not is_python_version_installed(python_version):
+                # Install the Python version
+                set_status(f"Installing Python {python_version} via pyenv...")
+                system = platform.system()
+                env = os.environ.copy()
+                if system == "Windows":
+                    command = f"pyenv install {python_version}"
+                    shell = True
+                else:
+                    command = ["pyenv", "install", python_version]
+                    shell = False
+
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    shell=shell,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    error_message = (
+                        f"Failed to install Python {python_version} via pyenv.\n"
+                        f"Command output:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                    )
+                    raise RuntimeError(error_message)
+
             # Get the pyenv-managed Python executable
             python_executable = get_pyenv_python_path(python_version)
             if not python_executable:
@@ -140,7 +173,7 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
                 "Success", f"Virtual environment for {script_name} created successfully!"
             )
 
-        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        except Exception as e:
             handle_error(e)
         finally:
             # Re-enable the Run button and reset the status
@@ -150,6 +183,41 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
 
     # Run the setup in a separate thread to avoid freezing the GUI
     threading.Thread(target=run_setup).start()
+
+
+def is_python_version_installed(python_version):
+    """Check if the specified Python version is installed via pyenv."""
+    try:
+        system = platform.system()
+        env = os.environ.copy()
+        if system == "Windows":
+            # On Windows, use shell=True and pass command as a string
+            command = f"pyenv versions --bare"
+            shell = True
+        else:
+            command = ["pyenv", "versions", "--bare"]
+            shell = False
+
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            env=env,
+            shell=shell,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            # Could not get versions; assume the version is not installed
+            return False
+
+        installed_versions = result.stdout.strip().splitlines()
+        # Remove potential whitespace and standardize version strings
+        installed_versions = [v.strip().replace("*", "").strip() for v in installed_versions]
+        return python_version in installed_versions
+
+    except Exception:
+        return False
 
 
 def is_pyenv_available():
