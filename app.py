@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import threading
@@ -9,8 +10,6 @@ import tkinter as tk
 import tkinter.font as tkfont
 import webbrowser
 from tkinter import messagebox, scrolledtext, simpledialog
-
-from packaging import version
 
 # Directory constants
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -138,9 +137,10 @@ def get_available_python_versions():
             # Skip empty lines and comments
             if not v or v.startswith("#"):
                 continue
-            # Skip non-standard versions (e.g., Stackless, Anaconda)
+            # Skip non-standard versions (e.g., Stackless, Anaconda, PyPy)
             if any(
-                keyword in v for keyword in ["Anaconda", "Stackless", "Miniconda", "MicroPython"]
+                keyword in v
+                for keyword in ["Anaconda", "Stackless", "Miniconda", "MicroPython", "PyPy"]
             ):
                 continue
             cleaned_versions.append(v)
@@ -158,23 +158,24 @@ def get_latest_available_python_version(prefix):
         if not matching_versions:
             raise ValueError(f"No available Python versions found matching '{prefix}'.")
 
-        # Remove pre-release and development versions if desired
+        # Remove pre-release and development versions
         stable_versions = []
         for v in matching_versions:
-            try:
-                parsed_version = version.parse(v)
-                if not parsed_version.is_prerelease and not parsed_version.is_devrelease:
-                    stable_versions.append(v)
-            except version.InvalidVersion:
-                # Skip versions that cannot be parsed
+            # Skip versions with pre-release or development suffixes
+            if re.search(r"(a|b|rc|dev|alpha|beta|t)", v, re.IGNORECASE):
                 continue
+            # Attempt to parse the version into numeric components
+            version_numbers = re.findall(r"\d+", v)
+            if not version_numbers:
+                continue  # Skip if no numeric parts found
+            stable_versions.append((v, [int(num) for num in version_numbers]))
 
         if not stable_versions:
             raise ValueError(f"No stable Python versions found matching '{prefix}'.")
 
-        # Sort the versions using packaging.version
-        stable_versions.sort(key=version.parse)
-        latest_version = stable_versions[-1]
+        # Sort the versions based on numeric components
+        stable_versions.sort(key=lambda x: x[1])
+        latest_version = stable_versions[-1][0]
         return latest_version
     except Exception as e:
         raise RuntimeError(f"Error finding latest Python version matching '{prefix}': {e}")
@@ -215,7 +216,9 @@ def setup_venv(script_name, python_version_input="3", run_button=None):
             # Check if the requested Python version is installed
             if not is_python_version_installed(python_version):
                 # Install the Python version
-                set_status(f"Installing Python {python_version} via pyenv...")
+                set_status(
+                    f"Installing Python {python_version} via pyenv... (this may take a while)"
+                )
                 system = platform.system()
                 env = os.environ.copy()
                 if system == "Windows":
@@ -239,6 +242,8 @@ def setup_venv(script_name, python_version_input="3", run_button=None):
                         f"Command output:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
                     )
                     raise RuntimeError(error_message)
+
+                set_status(f"Successfully installed Python {python_version} via pyenv.")
 
             # Get the pyenv-managed Python executable
             python_executable = get_pyenv_python_path(python_version)
@@ -429,8 +434,7 @@ def rebuild_venv(script_name, run_button):
 
     # Prompt user for Python version
     python_version = simpledialog.askstring(
-        "Python Version",
-        f"Enter the Python version to use for rebuilding {script_name} (e.g., 3.13.0 or python3.13):",
+        "Python Version", "Enter the Python version to use (e.g., 3, 3.11, 3.11.2):"
     )
     if not python_version:
         messagebox.showerror("Error", "Python version is required!")
@@ -768,7 +772,7 @@ def add_script():
 
     # Prompt for Python version
     python_version = simpledialog.askstring(
-        "Python Version", "Enter the Python version to use (e.g., python3, python3.9):"
+        "Python Version", "Enter the Python version to use (e.g., 3, 3.11, 3.11.2):"
     )
     if not python_version:
         messagebox.showerror("Error", "Python version is required!")
