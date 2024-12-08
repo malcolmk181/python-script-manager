@@ -65,19 +65,20 @@ def get_pyenv_python_path(python_version):
     """Get the path to the pyenv-managed Python executable."""
     try:
         system = platform.system()
+        env = os.environ.copy()
+        env["PYENV_VERSION"] = python_version
+
         if system == "Windows":
-            # Use 'python' on Windows
-            command = f"pyenv which python"
-            shell = True
+            home_dir = os.path.expanduser("~")
+            pyenv_root = os.path.join(home_dir, ".pyenv", "pyenv-win")
+            pyenv_executable = os.path.join(pyenv_root, "bin", "pyenv.bat")
+            command = [pyenv_executable, "which", "python"]
+            shell = False
         elif system in ["Darwin", "Linux"]:
-            # Use 'python3' on macOS and Linux
             command = ["pyenv", "which", "python3"]
             shell = False
         else:
             raise RuntimeError(f"Unsupported operating system: {system}")
-
-        env = os.environ.copy()
-        env["PYENV_VERSION"] = python_version
 
         result = subprocess.run(
             command,
@@ -156,8 +157,12 @@ def is_pyenv_available():
     try:
         system = platform.system()
         if system == "Windows":
-            command = "pyenv --version"
-            shell = True
+            # Specify full path to pyenv.bat
+            home_dir = os.path.expanduser("~")
+            pyenv_root = os.path.join(home_dir, ".pyenv", "pyenv-win")
+            pyenv_executable = os.path.join(pyenv_root, "bin", "pyenv.bat")
+            command = [pyenv_executable, "--version"]
+            shell = False
         else:
             command = ["pyenv", "--version"]
             shell = False
