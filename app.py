@@ -10,6 +10,8 @@ import tkinter.font as tkfont
 import webbrowser
 from tkinter import messagebox, scrolledtext, simpledialog
 
+from packaging import version
+
 # Directory constants
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts")
@@ -69,13 +71,11 @@ def get_pyenv_python_path(python_version):
         env["PYENV_VERSION"] = python_version
 
         if system == "Windows":
-            command = f"pyenv which python"
+            command = "pyenv which python"
             shell = True
-        elif system in ["Darwin", "Linux"]:
+        else:
             command = ["pyenv", "which", "python3"]
             shell = False
-        else:
-            raise RuntimeError(f"Unsupported operating system: {system}")
 
         # For Windows, pass the command as a string when shell=True
         command_list = command if shell else command
@@ -104,7 +104,83 @@ def get_pyenv_python_path(python_version):
         ) from exc
 
 
-def setup_venv(script_name, python_version="3.10.0", run_button=None):
+def get_available_python_versions():
+    """Get the list of available Python versions from pyenv."""
+    try:
+        system = platform.system()
+        env = os.environ.copy()
+        if system == "Windows":
+            command = "pyenv install --list"
+            shell = True
+        else:
+            command = ["pyenv", "install", "--list"]
+            shell = False
+
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            env=env,
+            shell=shell,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to get available Python versions.\nSTDERR:\n{result.stderr}"
+            )
+
+        versions = result.stdout.strip().splitlines()
+        # Clean up version strings
+        cleaned_versions = []
+        for v in versions:
+            v = v.strip()
+            # Skip empty lines and comments
+            if not v or v.startswith("#"):
+                continue
+            # Skip non-standard versions (e.g., Stackless, Anaconda)
+            if any(
+                keyword in v for keyword in ["Anaconda", "Stackless", "Miniconda", "MicroPython"]
+            ):
+                continue
+            cleaned_versions.append(v)
+        return cleaned_versions
+    except Exception as e:
+        raise RuntimeError(f"Error fetching available Python versions: {e}")
+
+
+def get_latest_available_python_version(prefix):
+    """Get the latest available Python version matching the given prefix."""
+    try:
+        versions = get_available_python_versions()
+        # Filter versions that start with the prefix
+        matching_versions = [v for v in versions if v.startswith(prefix)]
+        if not matching_versions:
+            raise ValueError(f"No available Python versions found matching '{prefix}'.")
+
+        # Remove pre-release and development versions if desired
+        stable_versions = []
+        for v in matching_versions:
+            try:
+                parsed_version = version.parse(v)
+                if not parsed_version.is_prerelease and not parsed_version.is_devrelease:
+                    stable_versions.append(v)
+            except version.InvalidVersion:
+                # Skip versions that cannot be parsed
+                continue
+
+        if not stable_versions:
+            raise ValueError(f"No stable Python versions found matching '{prefix}'.")
+
+        # Sort the versions using packaging.version
+        stable_versions.sort(key=version.parse)
+        latest_version = stable_versions[-1]
+        return latest_version
+    except Exception as e:
+        raise RuntimeError(f"Error finding latest Python version matching '{prefix}': {e}")
+
+
+def setup_venv(script_name, python_version_input="3", run_button=None):
     """Set up a virtual environment for the script using pyenv-managed Python."""
     env_path = os.path.join(ENVS_DIR, script_name)
     script_path = os.path.join(SCRIPTS_DIR, script_name)
@@ -117,10 +193,25 @@ def setup_venv(script_name, python_version="3.10.0", run_button=None):
         set_status("Setting up virtual environment...")
 
         def handle_error(error):
-            root.after(0, lambda: messagebox.showerror("Error", str(error)))
-            root.after(0, install_pyenv)
+            error_message = str(error)
+            root.after(0, lambda: messagebox.showerror("Error", error_message))
+            # Only prompt to install pyenv if the error suggests it's not installed
+            if (
+                "pyenv is not installed" in error_message
+                or "pyenv: command not found" in error_message
+            ):
+                root.after(0, install_pyenv)
 
         try:
+            # Get the latest available Python version matching the user's input
+            try:
+                python_version = get_latest_available_python_version(python_version_input)
+            except ValueError as ve:
+                root.after(0, lambda: messagebox.showerror("Error", str(ve)))
+                return  # Exit the function if no matching version is found
+
+            set_status(f"Using Python {python_version}")
+
             # Check if the requested Python version is installed
             if not is_python_version_installed(python_version):
                 # Install the Python version
@@ -191,8 +282,7 @@ def is_python_version_installed(python_version):
         system = platform.system()
         env = os.environ.copy()
         if system == "Windows":
-            # On Windows, use shell=True and pass command as a string
-            command = f"pyenv versions --bare"
+            command = "pyenv versions --bare"
             shell = True
         else:
             command = ["pyenv", "versions", "--bare"]
@@ -212,7 +302,7 @@ def is_python_version_installed(python_version):
             return False
 
         installed_versions = result.stdout.strip().splitlines()
-        # Remove potential whitespace and standardize version strings
+        # Clean up version strings
         installed_versions = [v.strip().replace("*", "").strip() for v in installed_versions]
         return python_version in installed_versions
 
