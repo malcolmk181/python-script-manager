@@ -43,8 +43,13 @@ def add_pyenv_to_path():
         pyenv_bin = os.path.join(pyenv_root, "bin")
         pyenv_shims = os.path.join(pyenv_root, "shims")
 
-    # Add pyenv directories to PATH
-    os.environ["PATH"] = os.pathsep.join([pyenv_bin, pyenv_shims, os.environ["PATH"]])
+    # Add pyenv directories to PATH if not already present
+    path_dirs = os.environ["PATH"].split(os.pathsep)
+    if pyenv_bin not in path_dirs:
+        path_dirs.insert(0, pyenv_bin)
+    if pyenv_shims not in path_dirs:
+        path_dirs.insert(0, pyenv_shims)
+    os.environ["PATH"] = os.pathsep.join(path_dirs)
 
 
 add_pyenv_to_path()
@@ -60,20 +65,26 @@ def get_pyenv_python_path(python_version):
     """Get the path to the pyenv-managed Python executable."""
     try:
         system = platform.system()
-        if system in ["Darwin", "Linux"]:
+        if system == "Windows":
+            # Use 'python' on Windows
+            command = f"pyenv which python"
+            shell = True
+        elif system in ["Darwin", "Linux"]:
             # Use 'python3' on macOS and Linux
             command = ["pyenv", "which", "python3"]
-        elif system == "Windows":
-            # Use 'python' on Windows
-            command = ["pyenv", "which", "python"]
+            shell = False
         else:
             raise RuntimeError(f"Unsupported operating system: {system}")
+
+        env = os.environ.copy()
+        env["PYENV_VERSION"] = python_version
 
         result = subprocess.run(
             command,
             capture_output=True,
             text=True,
-            env={"PATH": os.environ["PATH"], "PYENV_VERSION": python_version},
+            env=env,
+            shell=shell,
             check=False,
         )
         if result.returncode != 0:
@@ -143,11 +154,20 @@ def setup_venv(script_name, python_version="3.13.0", run_button=None):
 def is_pyenv_available():
     """Check if pyenv is installed and accessible."""
     try:
+        system = platform.system()
+        if system == "Windows":
+            command = "pyenv --version"
+            shell = True
+        else:
+            command = ["pyenv", "--version"]
+            shell = False
+
         result = subprocess.run(
-            ["pyenv", "--version"],
+            command,
             capture_output=True,
             text=True,
-            env={"PATH": os.environ["PATH"]},  # Use the updated PATH
+            env=os.environ.copy(),
+            shell=shell,
             check=False,
         )
         return result.returncode == 0
