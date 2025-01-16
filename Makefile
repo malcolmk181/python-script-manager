@@ -3,13 +3,19 @@ PYTHON_FORMATTERS = black . ; isort .
 APP_FILE = app.py
 
 # Platform-specific Python interpreter resolution
-PYTHON_INTERPRETER := $(shell $(if $(filter Windows_NT, $(OS)), where python, command -v python3 || command -v python))
+ifeq ($(OS),Windows_NT)
+	# On Windows, find python.exe using 'where'
+	PYTHON_INTERPRETER := $(shell for %%i in (python.exe) do @where %%i 2>nul | findstr /R /C:".exe" | head -n 1)
+else
+	# On Unix-like systems, use 'command -v'
+	PYTHON_INTERPRETER := $(shell command -v python3 || command -v python)
+endif
 
 # Formatting rules
 .PHONY: format
 format:
 	@echo "Running Black and isort..."
-	$(PYTHON_FORMATTERS)
+	$(PYTHON_INTERPRETER) -m black . && $(PYTHON_INTERPRETER) -m isort .
 
 # Cleaning rules
 .PHONY: clean
