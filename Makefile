@@ -4,11 +4,11 @@ APP_FILE = app.py
 
 # Platform-specific Python interpreter resolution
 ifeq ($(OS),Windows_NT)
-	# On Windows, find python.exe using 'where'
-	PYTHON_INTERPRETER := $(shell for %%i in (python.exe) do @where %%i 2>nul | findstr /R /C:".exe" | head -n 1)
+    # On Windows, use 'pyenv which python' to get the Python executable path
+    PYTHON_INTERPRETER := $(shell pyenv which python)
 else
-	# On Unix-like systems, use 'command -v'
-	PYTHON_INTERPRETER := $(shell command -v python3 || command -v python)
+    # On Unix-like systems, use 'command -v'
+    PYTHON_INTERPRETER := $(shell command -v python3 || command -v python)
 endif
 
 # Formatting rules
