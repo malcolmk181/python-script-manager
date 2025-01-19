@@ -8,7 +8,7 @@ The Python Script Manager is a user-friendly GUI application designed to simplif
 
 - Create and manage Python scripts with isolated virtual environments
 - Generate AI prompts for script creation
-- Run scripts with a single click
+- Run scripts with a single click, including as Administrator (in Windows)
 - Update script content, requirements, and environment variables
 - Archive unused scripts
 - Supports multiple Python versions using pyenv
@@ -21,7 +21,19 @@ Before using the Script Manager, ensure you have the following installed:
 - pyenv (for Python version management)
   - macOS: Install via Homebrew (`brew install pyenv`)
   - Linux: Follow pyenv installation instructions on GitHub
-  - Windows: Use pyenv-win or WSL
+- make (for easily running commands)
+
+### If using Windows
+
+If you can, setup Ubuntu via WSL 2 to avoid the pain of running code on Windows.
+
+Otherwise, use [Chocolatey](https://chocolatey.org/install). After installing Chocolately, you can install dependencies with it using an Administrator PowerShell window:
+
+```cmd
+choco install make
+choco install python
+choco install pyenv-win
+```
 
 ## Getting Started
 
@@ -49,6 +61,7 @@ Before using the Script Manager, ensure you have the following installed:
 #### Running a Script
 
 - Click the "Run" button next to any script to execute it in a new terminal window
+- Click the "⋯" menu, then click "Run as Administrator" to execute it with Administrator privileges
 
 #### Updating a Script
 
