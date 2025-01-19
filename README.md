@@ -13,27 +13,29 @@ The Python Script Manager is a user-friendly GUI application designed to simplif
 - Archive unused scripts
 - Supports multiple Python versions using pyenv
 
-## Prerequisites
-
-Before using the Script Manager, ensure you have the following installed:
-
-- Python (3.9+)
-- pyenv (for Python version management)
-  - macOS: Install via Homebrew (`brew install pyenv`)
-  - Linux: Follow pyenv installation instructions on GitHub
-- make (for easily running commands)
-
-### If using Windows
+## If using Windows
 
 If you can, setup Ubuntu via WSL 2 to avoid the pain of running code on Windows.
 
-Otherwise, use [Chocolatey](https://chocolatey.org/install). After installing Chocolately, you can install dependencies with it using an Administrator PowerShell window:
+Otherwise, use [Chocolatey](https://chocolatey.org/install). After installing Chocolately, you can install dependencies with it using an Administrator PowerShell window.
 
-```cmd
-choco install make
-choco install python
-choco install pyenv-win
-```
+## Requirements
+
+Before using the Script Manager, ensure you have the following installed:
+
+**Python 3.9+**
+
+**pyenv** (for Python version management)
+- macOS: Install via Homebrew (`brew install pyenv`)
+- Linux / WSL: Follow pyenv installation instructions on GitHub
+- Windows: `choco install pyenv-win`
+- Pyenv has some setup once successfully installed
+  - Run `pyenv update` to update the list of available python distributions
+  - Run `pyenv install 3.12.8` (or the version of your choice) as your "runner" version of Python. This will manage the creation of your virtual environments and run the app.
+  - Run `pyenv global 3.12.8` (or the version you chose) to set the main Python version.
+
+**make** (for easily running commands)
+  - Windows: `choco install make`
 
 ## Getting Started
 
@@ -79,6 +81,8 @@ choco install pyenv-win
 ## Troubleshooting
 
 - Ensure pyenv is installed and accessible
+  - Run `pyenv update` to update pyenv's list of available python versions
+  - You need to set a 
 - Check that you have the specified Python version installed via pyenv
 - Verify internet connectivity when installing requirements
 
