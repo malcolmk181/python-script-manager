@@ -137,12 +137,20 @@ def get_available_python_versions():
             # Skip empty lines and comments
             if not v or v.startswith("#"):
                 continue
-            # Skip non-standard versions (e.g., Stackless, Anaconda, PyPy)
+
             if any(
                 keyword in v
-                for keyword in ["Anaconda", "Stackless", "Miniconda", "MicroPython", "PyPy"]
+                for keyword in [
+                    "Anaconda",
+                    "Stackless",
+                    "Miniconda",
+                    "MicroPython",
+                    "PyPy",
+                    "-win32",
+                ]
             ):
                 continue
+
             cleaned_versions.append(v)
         return cleaned_versions
     except Exception as e:
@@ -475,10 +483,10 @@ def update_script_list():
     scripts = os.listdir(SCRIPTS_DIR)
     for script in scripts:
         if script not in script_metadata:
-            script_metadata[script] = 0  # Default to "never ran"
+            script_metadata[script] = 0
     for script in list(script_metadata.keys()):
         if script not in scripts:
-            del script_metadata[script]  # Remove deleted scripts
+            del script_metadata[script]
     save_metadata()
 
     # Sort scripts by last runtime (descending)
@@ -493,28 +501,25 @@ def update_script_list():
         script_name_frame = tk.Frame(script_frame)
         script_name_frame.pack(fill="x")
 
-        # Script Name Label
+        # Script name + last run label
         last_run = (
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(script_metadata[script]))
             if script_metadata[script]
             else "Never"
         )
 
-        # Frame for script name and "Last ran at" text
         script_info_frame = tk.Frame(script_name_frame)
         script_info_frame.pack(side="left", fill="x", expand=True)
 
-        # Script Name
         script_name_label = tk.Label(script_info_frame, text=script, anchor="w")
         script_name_label.pack(side="left")
 
-        # "Last ran at" Text
         last_run_label = tk.Label(
             script_info_frame, text=f" (Last ran at: {last_run})", fg="grey", anchor="w"
         )
         last_run_label.pack(side="left")
 
-        # Create the context menu (hamburger menu)
+        # Context menu
         context_menu = tk.Menu(root, tearoff=0)
         context_menu.add_command(
             label="Rebuild Env",
@@ -537,20 +542,17 @@ def update_script_list():
             command=lambda s=script: edit_env_variables(s),
         )
 
-        # Hamburger menu button with horizontal dots
-        btn_hamburger = tk.Button(
-            script_name_frame,
-            text="⋯",  # Horizontal dots
-            relief="flat",  # Optional: Flat style for modern look
-            padx=5,  # Add horizontal padding for better clickability
+        context_menu.add_command(
+            label="Run as Administrator",
+            command=lambda s=script: run_script_admin(s),
         )
 
-        # Configure the command after the button is created
+        # Hamburger menu button
+        btn_hamburger = tk.Button(script_name_frame, text="⋯", relief="flat", padx=5)
         btn_hamburger.config(
             command=lambda menu=context_menu, btn=btn_hamburger: show_context_menu(menu, btn)
         )
-
-        btn_hamburger.pack(side="right", padx=5, pady=5)  # Add vertical centering
+        btn_hamburger.pack(side="right", padx=5, pady=5)
 
         # Run Button
         btn_run = tk.Button(
@@ -754,6 +756,55 @@ def run_script(script_name):
                 "-e",
                 f"echo 'Running script {script_name}' && echo && echo && '{python_executable}' '{script_path}'",
             ]
+        )
+    else:
+        messagebox.showerror("Error", "Unsupported operating system!")
+
+
+def run_script_admin(script_name):
+    """
+    Launches a new cmd window in administrator mode via PowerShell's
+    Start-Process -Verb runAs, then runs the selected script in its virtual env.
+    """
+
+    # Record last runtime
+    script_metadata[script_name] = time.time()
+    save_metadata()
+
+    # Paths
+    env_path = os.path.join(ENVS_DIR, script_name)
+    script_path = os.path.join(SCRIPTS_DIR, script_name, "main.py")
+    if not os.path.exists(script_path):
+        messagebox.showerror("Error", f"Script '{script_name}' not found!")
+        return
+
+    system = platform.system()
+    if system == "Windows":
+        python_executable = os.path.join(env_path, "Scripts", "python.exe")
+
+        ps_cmd = (
+            f"Start-Process cmd -Verb runAs -ArgumentList "
+            f'\'/k echo "Running script {script_name} as Admin" '
+            f'&& echo. && echo. && "{python_executable}" "{script_path}"\''
+        )
+
+        # 2) Invoke powershell.exe with that command
+        #    We'll pass the entire ps_cmd string to -Command
+        process_args = [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            ps_cmd,
+        ]
+
+        # 3) Launch asynchronously (no blocking)
+        subprocess.Popen(process_args)
+
+    elif system in ("Darwin", "Linux"):
+        messagebox.showwarning(
+            "Not Supported", "Running as Administrator is only supported on Windows in this script."
         )
     else:
         messagebox.showerror("Error", "Unsupported operating system!")
