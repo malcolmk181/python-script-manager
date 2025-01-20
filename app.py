@@ -8,7 +8,9 @@ import threading
 import time
 import tkinter as tk
 import tkinter.font as tkfont
+import urllib.request
 import webbrowser
+import zipfile
 from tkinter import messagebox, scrolledtext, simpledialog
 
 # Directory constants
@@ -54,6 +56,117 @@ def add_pyenv_to_path():
 
 
 add_pyenv_to_path()
+
+
+def check_for_updates():
+    """
+    Checks for updates from the remote GitHub repository.
+    Tries Git-based update first. If Git is not installed or
+    not in a git repository, attempts a fallback ZIP-based update.
+    """
+
+    # Path to the GitHub repo
+    github_repo_url = "https://github.com/malcolmk181/python-script-manager.git"
+    # ZIP download URL for the 'main' branch
+    github_zip_url = (
+        "https://github.com/malcolmk181/python-script-manager/archive/refs/heads/main.zip"
+    )
+
+    def do_git_update():
+        """
+        Attempt to run a Git pull to update the local repository.
+        Returns True on success, False otherwise.
+        """
+        try:
+            # Confirm whether Git is installed and recognized
+            # For a more thorough check, you could also run:
+            #     subprocess.run(["git", "--version"], check=True, capture_output=True)
+            # But this simpler approach will suffice for demonstration.
+            result = subprocess.run(
+                ["git", "pull"],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=BASE_DIR,
+            )
+
+            if result.returncode != 0:
+                # Either not a Git repo, or Git is not installed, or another error
+                return False
+
+            messagebox.showinfo(
+                "Update", f"Git pull completed:\n\n{result.stdout.strip() or 'No changes.'}"
+            )
+            return True
+        except FileNotFoundError:
+            # Git not installed or not on PATH
+            return False
+        except Exception as e:
+            # Other errors
+            messagebox.showerror("Update Error", f"Git update failed:\n{e}")
+            return False
+
+    def do_zip_update():
+        """
+        Download the ZIP from GitHub and replace files in BASE_DIR,
+        except user scripts or anything you'd like to keep excluded.
+        """
+        # Ask the user to confirm overwriting
+        confirm = messagebox.askyesno(
+            "Confirm Update",
+            "Git update failed or not available.\n\n"
+            "Proceed with ZIP-based update from GitHub? This will overwrite base files.",
+        )
+        if not confirm:
+            return
+
+        # Download the ZIP to a temporary file
+        try:
+            tmp_zip_path = os.path.join(BASE_DIR, "update_temp.zip")
+            with urllib.request.urlopen(github_zip_url) as response, open(
+                tmp_zip_path, "wb"
+            ) as out_file:
+                shutil.copyfileobj(response, out_file)
+
+            # Extract it to a temporary directory
+            tmp_extract_dir = os.path.join(BASE_DIR, "update_extracted")
+            os.makedirs(tmp_extract_dir, exist_ok=True)
+            with zipfile.ZipFile(tmp_zip_path, "r") as zip_ref:
+                zip_ref.extractall(tmp_extract_dir)
+
+            # Inside the ZIP, the repo is typically named python-script-manager-main
+            extracted_repo_dir = os.path.join(tmp_extract_dir, "python-script-manager-main")
+
+            # Now selectively copy the updated files over to your BASE_DIR
+            # You can skip SCRIPTS_DIR and ENVS_DIR if you don’t want to overwrite user scripts/environments
+            for item in os.listdir(extracted_repo_dir):
+                # Skip directories you don't want overwritten
+                if item in ["scripts", "environments"]:
+                    continue
+
+                src_path = os.path.join(extracted_repo_dir, item)
+                dest_path = os.path.join(BASE_DIR, item)
+
+                # If it's a directory, remove the old one and replace
+                if os.path.isdir(src_path):
+                    if os.path.exists(dest_path):
+                        shutil.rmtree(dest_path)
+                    shutil.copytree(src_path, dest_path)
+                else:
+                    shutil.copy2(src_path, dest_path)
+
+            # Cleanup temporary files
+            os.remove(tmp_zip_path)
+            shutil.rmtree(tmp_extract_dir)
+
+            messagebox.showinfo("Update", "ZIP-based update completed successfully.")
+        except Exception as e:
+            messagebox.showerror("Update Error", f"ZIP-based update failed:\n{e}")
+
+    # First, try the Git update
+    if not do_git_update():
+        # If Git update fails, do ZIP update
+        do_zip_update()
 
 
 def save_metadata():
@@ -1082,7 +1195,11 @@ btn_generate_prompt.pack(side="left", padx=5)
 
 # Refresh Script List Button
 btn_refresh = tk.Button(btn_frame, text="Refresh Script List", command=update_script_list)
-btn_refresh.pack(side="left", padx=5)  # Aligned to the left next to Add Script
+btn_refresh.pack(side="left", padx=5)
+
+# Update app Button
+btn_check_updates = tk.Button(btn_frame, text="Check for Updates", command=check_for_updates)
+btn_check_updates.pack(side="left", padx=5)
 
 # Progress Label Frame
 progress_frame = tk.Frame(root, relief="solid", borderwidth=1, padx=10, pady=5)
