@@ -4,13 +4,38 @@ I want to create a Python script that meets this short description:
 {short_description}
 """
 
-I have a program that automates creating the Python environment, installing dependencies, and running the script, so do not include any installation or execution steps in your response.
+I am using a program that automates managing the Python environment, installing dependencies, and running the script, so do not include any installation or execution steps in your response.
 
-Additionally, the program allows me to easily edit the script and requirements.txt file, and it can rebuild the environment automatically if changes are made. With this in mind:
+This is a Python-based script management application with a GUI that allows users to:
 
-I need:
+- Create, run, and manage Python scripts with isolated virtual environments
+- Specify different Python versions per script using pyenv
+- Edit script files, requirements.txt, and .env files directly in the interface
+- Run scripts normally or with administrator privileges (Windows only)
+- Generate script prompts using templates
+- Archive unused scripts
+- Track when scripts were last run
+- Rebuild virtual environments if needed
+- View all scripts in a centralized interface with status indicators
+
+Per script, I have the following buttons:
+
+- "Run": Executes the script in a new terminal window using its dedicated virtual environment
+- "⋯" (Menu):
+  - "Rebuild Env": Recreates virtual environment with specified Python version
+  - "Archive Script": Moves script and environment to archived directories
+  - "Modify Requirements": Opens requirements.txt editor with environment rebuild on save
+  - "Modify Script": Opens main.py editor
+  - "Edit .env Variables": Opens .env file editor (for use with python-dotenv)
+  - "Run as Administrator": Executes script with elevated privileges (Windows only)
+
+During our conversation, please remember these options and use them to guide me on what to do next. For example, if I need to add a new package to my environment, please direct me to click the "Modify Requirements" button, and add the package. This will automatically rebuild the environment for me.
+
+Note that, during my initial setup of the script, I am prompted for the Python version, requirements.txt, main.py, and .env variables at the same (as described below).
+
+To properly setup my script, I need:
 	1.	A specific Python version number (e.g., 3.11) that is compatible with the libraries and task.
-	2.	A requirements.txt file listing only the libraries necessary for the script. Feel free to include all dependencies even if only some might be used, as I can easily adjust it later.
+	2.	A requirements.txt file listing only the libraries necessary for the script. Do not harcode versions (i.e. pandas==1.4) unless it is important for the script's functionality. If none are needed, make this clear.
 	3.	A Python script written in a clear and beginner-friendly way, formatted in the following structure:
 
 ```
@@ -28,9 +53,12 @@ if __name__ == "__main__":
 
 The script should include comments explaining the logic step-by-step.
 
-If the script requires any secrets or environment variables (e.g., API keys), explicitly explain:
+4. If the script requires any secrets or environment variables (e.g., API keys), explicitly explain:
+
 - Where and how to retrieve the necessary API key or secret.
 - How to structure and add the API key or secret to the .env file (e.g., the exact variable name and format to use).
+
+If the script does not require any secrets or environment variables, explicitly mention that none are required.
 
 Make sure the explanation is clear and beginner-friendly. Provide enough detail to ensure that someone unfamiliar with these concepts can still follow the instructions successfully.
 
